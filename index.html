@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <title>NeuroDetector · Simplex+ FUSION v7.1</title>
+  <meta name="theme-color" content="#1a3a1a"/>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='24' fill='%231a2b1a'/%3E%3Ctext x='50%25' y='62%25' text-anchor='middle' fill='%2350c878' font-size='96'%3E%F0%9F%A7%A0%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root{
+      --radio-bg:#1a2b1a; --dial-bg:#2c4a2c; --highlight:#50c878; --text:#e0ffe0; --border:#4a7a4a;
+      --warning:#ffd93d; --danger:#ff6b6b; --ai-blue:#4da6ff; --train-purple:#b35cff; --panel-bg:rgba(50,50,80,.2);
+      --heatmap: #ff4500;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Courier New',monospace; background:linear-gradient(135deg,#0d1b0d,#1a3a1a);
+      color:var(--text); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:12px; transition: background 0.5s;
+    }
+    .card{width:100%; max-width:600px; background:var(--radio-bg); border:2px solid var(--border);
+      border-radius:10px; padding:18px; margin-bottom:14px; box-shadow:0 0 20px rgba(0,0,0,.7), inset 0 0 15px rgba(0,0,0,.5)}
+    .brand{font-size:1.8rem; text-align:center; color:var(--highlight); font-weight:700; text-shadow:0 0 8px rgba(80,200,120,.7)}
+    .subtitle{text-align:center; font-size:.85rem; color:#a9caa9; margin-top:3px}
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .block{background:var(--dial-bg); border:1px solid var(--border); border-radius:8px; padding:12px}
+    .label{display:block; color:var(--highlight); font-weight:700; margin-bottom:6px}
+    .value{background:rgba(0,0,0,.25); border-radius:6px; padding:8px; font-weight:700; text-align:center}
+    .value .live{color:var(--warning); font-size:1.4rem}
+    .btn-row{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap}
+    .btn{
+      padding:10px 14px; background:#334d33; border:1px solid var(--border); border-radius:6px; color:var(--text);
+      font-weight:700; cursor:pointer; flex:1; min-width:120px; text-align:center; transition: all 0.2s;
+    }
+    .btn:hover:not(:disabled){background:#446644; transform: translateY(-1px);}
+    .btn:active:not(:disabled){transform: translateY(0);}
+    .btn:disabled{opacity:.5; cursor:not-allowed}
+    .btn-start{background:#1d5c1d; border-color:#2d8b2d}
+    .btn-stop{background:#9d0208; border-color:#d00000}
+    .btn-save{background:#3a3a8b; border-color:#5a5aad}
+    .btn-ghost{background:transparent; border-color:#5a5a8a}
+    .btn-map{background:#2c5282; border-color:#3182ce}
+    .btn-export{background:#8b3a8b; border-color:#ad5aad}
+    .btn-danger{background:#78290f; border-color:#a33a18}
+    .btn-tts{background:#ffa500; border-color:#ff8c00; color:#000}
+    .btn-hud{background:#003366; border-color:#0055aa; color:#fff}
+    .panel{background:var(--panel-bg); border:1px solid #5a5a8a; border-radius:8px; padding:12px}
+    .spectrum{width:100%; height:110px; background:#000; border-radius:6px}
+    .pulse{animation:pulse 1.6s infinite}
+    @keyframes pulse{0%{opacity:1} 50%{opacity:.6} 100%{opacity:1}}
+    .list{display:flex; flex-direction:column; gap:8px}
+    .item{display:flex; justify-content:space-between; gap:8px; background:rgba(0,0,0,.2); padding:8px; border-radius:6px}
+    .item-actions{display:flex; gap:6px}
+    .hint{font-size:.85rem; color:#ffd93d}
+    .small{font-size:.9rem}
+    .center{text-align:center}
+    .hidden{display:none}
+    .confidence-meter {
+      width:100%; height:8px; background:#333; border-radius:4px; margin-top:8px; overflow:hidden;
+    }
+    .confidence-bar {
+      height:100%; background:linear-gradient(90deg, #ff4500, #ffd700, #32cd32); border-radius:4px; width:0%; transition: width 0.3s;
+    }
+    .ai-high-confidence { animation: glow 2s infinite; }
+    @keyframes glow { 0%{box-shadow:0 0 5px #ff0} 50%{box-shadow:0 0 20px #ff0} 100%{box-shadow:0 0 5px #ff0} }
+    /* Fullscreen overlay panels */
+    .overlay{position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; z-index:1000; padding:16px}
+    .modal{background:var(--radio-bg); border:2px solid var(--border); border-radius:10px; padding:16px; width:100%; max-width:520px}
+    .close-fab{position:absolute; top:14px; right:14px; background:var(--danger); border:1px solid #a33; border-radius:8px; padding:8px 10px; color:#fff; cursor:pointer}
+    input, select, textarea{
+      width:100%; padding:10px; background:var(--dial-bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-family:'Courier New',monospace
+    }
+    .tag-row .btn{flex:initial; min-width:auto; padding:6px 10px; font-size:.85rem}
+    #map{width:100%; height:75vh; border:2px solid var(--border); border-radius:10px}
+    .toast{
+      position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#1f2937; color:#fff; border:1px solid #374151;
+      border-radius:8px; padding:10px 14px; display:none; z-index:2000; box-shadow:0 6px 24px rgba(0,0,0,.35)
+    }
+    /* HUD Mode */
+    .hud-mode {
+      padding: 0; background: linear-gradient(135deg, #000, #111) !important;
+    }
+    .hud-mode .card {
+      position: fixed; top: 10px; left: 10px; right: 10px; max-width: none; z-index: 1000;
+      background: rgba(10, 20, 10, 0.85); backdrop-filter: blur(5px); border: 1px solid rgba(80, 200, 120, 0.3);
+    }
+    .hud-mode .spectrum { height: 60px; }
+    .hud-mode .btn { min-width: 70px; padding: 8px 4px; font-size: 0.8rem; }
+    .hud-mode .value .live { font-size: 1.8rem; }
+    .hud-mode .knob-label { font-size: 0.9rem; }
+    .hud-mode #map { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 500; border: none; border-radius: 0; }
+    .hud-mode .close-fab { top: 5px; right: 5px; padding: 4px 6px; font-size: 12px; }
+    /* Saved samples list */
+    #savedSamplesList .item { cursor: pointer; }
+    #savedSamplesList .item.selected { background: #3a5a3a !important; }
+    @media (max-width:600px){
+      .btn{min-width:auto; width:100%}
+    }
+  </style>
+</head>
+<body>
+  <!-- HEADER / MAIN -->
+  <div class="card">
+    <div class="brand">NEURO DETECTOR · FUSION v7.1</div>
+    <div class="subtitle">Simplex+ · LIVE AI + GPS + TTS</div>
+    <div class="row" style="margin-top:10px">
+      <div class="block" style="flex:1">
+        <span class="label">STATUS</span>
+        <div id="status" class="value center">Oczekiwanie na mikrofon...</div>
+      </div>
+      <div class="block" style="flex:1">
+        <span class="label">ŹRÓDŁO MIKROFONU</span>
+        <select id="micSelect"><option value="">Domyślny</option></select>
+      </div>
+    </div>
+    <div class="block">
+      <span class="label">CZUŁOŚĆ / PRÓG</span>
+      <div class="row">
+        <input id="sensitivity" type="range" min="0" max="20" step="1" value="6" style="flex:1">
+        <div class="small" style="min-width:160px; text-align:right">
+          Margines: <b><span id="marginVal">6</span> dB</b><br>
+          Tło: <b><span id="noiseVal">--</span> dB</b> · Próg: <b><span id="thVal">--</span> dB</b>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="block" style="flex:1">
+        <span class="label">TON [Hz] — LIVE</span>
+        <div class="value"><span id="freqValue" class="live">---</span> Hz</div>
+        <div id="calibBadge" class="hint center" style="display:none; margin-top:6px"></div>
+      </div>
+      <div class="block" style="flex:1">
+        <span class="label">GŁOŚNOŚĆ [dB]</span>
+        <div class="value"><span id="volValue" class="live">---</span> dB</div>
+      </div>
+      <div class="block" style="flex:1">
+        <span class="label">CZAS SYGNAŁU</span>
+        <div class="value"><span id="timeValue" class="live">---</span> s</div>
+      </div>
+    </div>
+    <canvas id="spectrumCanvas" class="spectrum"></canvas>
+    <div id="aiMsg" class="panel center">👂 Czekam na sygnał z detektora...</div>
+    <div class="confidence-meter"><div id="confidenceBar" class="confidence-bar"></div></div>
+    <div class="btn-row">
+      <button id="startBtn" class="btn btn-start">▶ START MIC</button>
+      <button id="stopBtn" class="btn btn-stop" disabled>⏹ STOP</button>
+      <button id="saveBtn" class="btn btn-save" disabled>💾 ZAPISZ</button>
+      <button id="openCalib" class="btn">⚙️ KALIBR</button>
+    </div>
+    <div class="btn-row">
+      <button id="trainBtn" class="btn">🎓 TRENING</button>
+      <button id="recordBtn" class="btn">🎤 NAGRAJ</button>
+      <button id="exportBtn" class="btn btn-export">📤 CSV/GPX</button>
+      <button id="mapBtn" class="btn btn-map">🗺️ MAPA</button>
+    </div>
+    <div class="btn-row">
+      <button id="ttsToggle" class="btn btn-tts">🔈 TTS: WŁ</button>
+      <button id="autoSaveToggle" class="btn btn-ghost">💾 AutoSave: WYŁ</button>
+      <button id="hudToggle" class="btn btn-hud">⛶ HUD: WYŁ</button>
+      <button id="cloudBtn" class="btn btn-ghost">☁️ BACKUP</button>
+    </div>
+  </div>
+  <!-- DETECTIONS -->
+  <div id="detCard" class="card" style="display:none">
+    <h3 class="center">🗂️ WYKRYCIA</h3>
+    <div class="row" style="margin:10px 0">
+      <input id="searchInput" placeholder="🔎 Wyszukaj po opisie...">
+    </div>
+    <div id="detList" class="list"></div>
+  </div>
+  <!-- SAVE MODAL -->
+  <div id="saveOverlay" class="overlay">
+    <div class="modal">
+      <button class="close-fab" id="cancelSave">X</button>
+      <h3 class="center">Zapisz znalezisko</h3>
+      <p id="locHint" class="hint center" style="margin:6px 0">Pobieram lokalizację...</p>
+      <input id="noteInput" placeholder="Opisz znalezisko... np. [Moneta] srebrna 1zł">
+      <div class="row tag-row" style="margin:8px 0">
+        <button class="btn" data-tag="[Moneta] ">Moneta</button>
+        <button class="btn" data-tag="[Militaria] ">Militaria</button>
+        <button class="btn" data-tag="[Srebro] ">Srebro</button>
+        <button class="btn" data-tag="[Śmieć] ">Śmieć</button>
+      </div>
+      <input id="photoInput" type="file" accept="image/*" capture="environment" class="hidden">
+      <div class="btn-row">
+        <button id="photoBtn" class="btn btn-ghost">📸 DODAJ ZDJĘCIE</button>
+      </div>
+      <img id="photoPrev" style="max-width:120px; max-height:120px; display:none; border:1px solid var(--border); border-radius:6px; margin:10px auto; display:block;">
+      <div class="btn-row">
+        <button id="confirmSave" class="btn btn-save">✅ ZAPISZ</button>
+        <button id="discardBtn" class="btn btn-danger">❌ ODRZUĆ</button>
+      </div>
+    </div>
+  </div>
+  <!-- CALIB PANEL — ✅ Z DODANYM MIKROFONEM I PANEL PRÓBEK -->
+  <div id="calibOverlay" class="overlay">
+    <div class="modal">
+      <button class="close-fab" id="closeCalib">X</button>
+      <h3 class="center">🔧 Kalibracja częstotliwości</h3>
+      <!-- ✅ NOWE: mikrofon kalibracyjny -->
+      <div class="row" style="margin:8px 0">
+        <button id="calibMicBtn" class="btn btn-tts" style="flex:1">🎤 MIC KALIBRACJI: WYŁ</button>
+      </div>
+      <div class="block" style="margin-top:8px">
+        <span class="label">Sygnał referencyjny</span>
+        <select id="calibRef">
+          <option value="2450">Złoto/Srebro (2450 Hz)</option>
+          <option value="2800">Srebro (2800 Hz)</option>
+          <option value="850">Folia (850 Hz)</option>
+          <option value="420">Żelazo (420 Hz)</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="block" style="flex:1">
+          <span class="label">TON LIVE</span>
+          <div class="value center"><span id="liveCalib" class="live">---</span> Hz</div>
+        </div>
+        <div class="block" style="flex:1">
+          <span class="label">PRÓBKI</span>
+          <div id="sampleCount" class="value center">0 / 5</div>
+        </div>
+      </div>
+      <div id="calibMsg" class="panel center small">Wybierz metodę: Auto lub Złap próbkę</div>
+      <div class="btn-row">
+        <button id="autoBtn" class="btn btn-start">▶ AUTO PRÓBKA</button>
+        <button id="grabBtn" class="btn">➕ ZŁAP PRÓBKĘ</button>
+        <button id="quickBtn" class="btn">⚡ SZYBKA KALIBRACJA</button>
+      </div>
+      <div class="btn-row">
+        <button id="applyBtn" class="btn btn-save">✅ ZASTOSUJ (≥3)</button>
+        <button id="clearSamplesBtn" class="btn btn-ghost">🗑️ WYCZYŚĆ</button>
+      </div>
+      <div id="samplesCard" class="panel" style="display:none; margin-top:8px">
+        <div id="samplesList" class="list"></div>
+      </div>
+      <!-- ✅ PANEL PRÓBEK -->
+      <div class="panel" style="margin-top:10px">
+        <span class="label">💾 Trwałe wzorce metali</span>
+        <div class="row" style="margin-top:6px">
+          <input id="sampleNameInput" type="text" placeholder="Nazwa: np. Złoto_18K...">
+          <button id="saveSampleBtn" class="btn btn-save" style="min-width:auto;padding:6px 12px">💾 ZAPISZ</button>
+        </div>
+        <div id="savedSamplesList" class="list" style="margin-top:8px; max-height:120px; overflow-y:auto"></div>
+        <div class="btn-row" style="margin-top:6px">
+          <button id="useSampleAsRef" class="btn btn-ghost" disabled>➡️ Użyj jako referencję</button>
+          <button id="deleteSampleBtn" class="btn btn-danger" disabled>🗑️ Usuń wybraną</button>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:10px">
+        <span class="label">Offset ręczny</span>
+        <input id="manualOffset" type="number" placeholder="np. 30">
+        <div class="btn-row" style="margin-top:8px">
+          <button id="applyManual" class="btn btn-save">ZASTOSUJ OFFSET</button>
+          <button id="resetOffset" class="btn btn-ghost">RESET</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- MAP PANEL -->
+  <div id="mapOverlay" class="overlay">
+    <div class="modal" style="padding:0; border:none; background:transparent">
+      <button class="close-fab" id="closeMapBtn">X</button>
+      <div id="map"></div>
+    </div>
+  </div>
+  <!-- TRAINING PANEL -->
+  <div id="trainOverlay" class="overlay">
+    <div class="modal">
+      <button class="close-fab" id="closeTrain">X</button>
+      <h3 class="center">🎧 Tryb treningowy</h3>
+      <div class="block">
+        <span class="label">Wybierz sygnał</span>
+        <select id="trainSelect">
+          <option value="gold">Złoto (2450 Hz)</option>
+          <option value="silver">Srebro (2800 Hz)</option>
+          <option value="iron">Żelazo (420 Hz)</option>
+          <option value="foil">Folia (850 Hz)</option>
+          <option value="deep">Głęboki (600 Hz, długi)</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button id="playTrain" class="btn btn-start">▶ ODTWÓRZ</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast">OK</div>
+  <script>
+/* ========= 0) Oczyszczenie Service Workerów ========= */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
+}
+/* ========= 1) Stan aplikacji ========= */
+let audioCtx=null, analyser=null, mediaStream=null, srcNode=null;
+let isListening=false, signalStart=null;
+let detections=[];
+let selectedMic = localStorage.getItem('ndx_mic') || '';
+let marginDb = parseInt(localStorage.getItem('ndx_margin') || '6', 10);
+let frequencyOffset = parseFloat(localStorage.getItem('ndx_offset') || '0');
+let ttsEnabled = localStorage.getItem('ndx_tts') === 'true';
+let autoSaveEnabled = localStorage.getItem('ndx_autosave') === 'true';
+let hudMode = false;
+let noiseRms = 0.01; const noiseAlpha = 0.98;
+let emaFreq=null, emaVol=null; const emaBeta=0.85;
+let recentFreqs=[]; const RECENT_MAX=12;
+let harmonicBuffer = []; const HARMONIC_SIZE=512;
+let lastDet = null;
+let map = null, markers=[], heatLayer=null;
+let db=null; const DB_NAME='NeuroDetFusionDB', DB_VER=1, STORE='detections';
+let samples = [];
+let autoCapturing = false, autoBuf=[], autoStart=0, autoSilence=0;
+let mediaRecorder=null, recChunks=[];
+let wasListening = false;
+// ✅ NOWE: kalibracja
+let calibAudioCtx = null, calibAnalyser = null, calibStream = null;
+let isCalibMicActive = false;
+let savedSamples = JSON.parse(localStorage.getItem('ndx_saved_samples') || '[]');
+let selectedSampleIndex = -1;
+
+/* ========= 2) DOM ========= */
+const $ = id => document.getElementById(id);
+const statusEl = $('status'), micSelect=$('micSelect');
+const sensitivity=$('sensitivity'), marginVal=$('marginVal'), noiseVal=$('noiseVal'), thVal=$('thVal');
+const freqEl=$('freqValue'), volEl=$('volValue'), timeEl=$('timeValue'), aiMsg=$('aiMsg'), confidenceBar=$('confidenceBar');
+const startBtn=$('startBtn'), stopBtn=$('stopBtn'), saveBtn=$('saveBtn');
+const spectrum=$('spectrumCanvas'); const sctx = spectrum.getContext('2d');
+const detCard=$('detCard'), detList=$('detList'), searchInput=$('searchInput');
+const calibBadge=$('calibBadge');
+const saveOverlay=$('saveOverlay'), noteInput=$('noteInput'), locHint=$('locHint');
+const photoInput=$('photoInput'), photoBtn=$('photoBtn'), photoPrev=$('photoPrev');
+const confirmSave=$('confirmSave'), cancelSave=$('cancelSave'), discardBtn=$('discardBtn');
+const calibOverlay=$('calibOverlay'), calibRef=$('calibRef'), liveCalib=$('liveCalib');
+const calibMsg=$('calibMsg'), autoBtn=$('autoBtn'), grabBtn=$('grabBtn'), quickBtn=$('quickBtn');
+const applyBtn=$('applyBtn'), clearSamplesBtn=$('clearSamplesBtn'), samplesCard=$('samplesCard'), samplesList=$('samplesList'), sampleCount=$('sampleCount');
+const manualOffset=$('manualOffset'), applyManual=$('applyManual'), resetOffset=$('resetOffset'), closeCalib=$('closeCalib');
+const trainBtn=$('trainBtn'), trainOverlay=$('trainOverlay'), closeTrain=$('closeTrain'), trainSelect=$('trainSelect'), playTrain=$('playTrain');
+const mapBtn=$('mapBtn'), mapOverlay=$('mapOverlay'), closeMapBtn=$('closeMapBtn'), mapEl=$('map');
+const recordBtn=$('recordBtn'), exportBtn=$('exportBtn');
+const ttsToggle=$('ttsToggle'), autoSaveToggle=$('autoSaveToggle'), hudToggle=$('hudToggle'), cloudBtn=$('cloudBtn');
+const toast=$('toast');
+// ✅ NOWE: elementy kalibracji
+const calibMicBtn = $('calibMicBtn');
+const sampleNameInput = $('sampleNameInput'), saveSampleBtn = $('saveSampleBtn');
+const savedSamplesList = $('savedSamplesList'), useSampleAsRef = $('useSampleAsRef'), deleteSampleBtn = $('deleteSampleBtn');
+
+/* ========= POMOCNICZE — ✅ teraz zdefiniowane globalnie ========= */
+function median(arr){
+  if(arr.length===0) return 0;
+  const s=[...arr].sort((a,b)=>a-b);
+  const mid=Math.floor(s.length/2);
+  return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
+}
+function toastMsg(msg, t=1500){
+  toast.textContent=msg; toast.style.display='block';
+  clearTimeout(toast._t); toast._t=setTimeout(()=>toast.style.display='none', t);
+}
+async function populateMics(){
+  try{
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const mics = devs.filter(d=>d.kind==='audioinput');
+    micSelect.innerHTML = mics.length ? mics.map(d=>`<option value="${d.deviceId}">${d.label||('Mikrofon '+d.deviceId.slice(0,6))}</option>`).join('') : '<option value="">Domyślny</option>';
+    if (selectedMic && [...micSelect.options].some(o=>o.value===selectedMic)) micSelect.value=selectedMic;
+  }catch(e){}
+}
+function speak(text) {
+  if (ttsEnabled && 'speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pl-PL';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.2;
+    speechSynthesis.speak(utterance);
+  }
+}
+function refinedFreq(byteMag, peakIndex, sr, fftSize){
+  if (peakIndex<=0 || peakIndex>=byteMag.length-1) return (peakIndex*sr)/fftSize;
+  const a=byteMag[peakIndex-1], b=byteMag[peakIndex], c=byteMag[peakIndex+1];
+  const d=(a-2*b+c); const p = d ? 0.5*(a-c)/d : 0;
+  return ((peakIndex+p)*sr)/fftSize;
+}
+function drawSpectrum(data){
+  const sctx = spectrum.getContext('2d');
+  sctx.clearRect(0,0,spectrum.width,spectrum.height);
+  const bw = spectrum.width/data.length;
+  for(let i=0;i<data.length;i++){
+    const h = (data[i]/255)*spectrum.height;
+    const hue=(i/data.length)*360;
+    sctx.fillStyle=`hsl(${hue},100%,50%)`;
+    sctx.fillRect(i*bw, spectrum.height-h, bw, h);
+  }
+}
+
+/* ========= AI — rozszerzona o własne próbki ========= */
+function aiClassify(freq, dur, vol) {
+  const corr = freq + frequencyOffset;
+  // ✅ 1. Dopasuj do własnych wzorców
+  for (const s of savedSamples) {
+    const diff = Math.abs(corr - s.freq);
+    if (diff <= 2 * s.std) {
+      const conf = 0.7 + 0.3 * (1 - diff / (2 * s.std));
+      return { type: `🎯 ${s.name}`, confidence: conf };
+    }
+  }
+  // ✅ 2. Fallback
+  if (corr > 2200 && dur > 0.2 && dur < 1.2) return { type: "💰 ZŁOTO/SREBRO", confidence: 0.92 };
+  if (corr > 700 && corr < 1000 && dur < 0.4) return { type: "🪙 FOLIA/PIENIĄDZ", confidence: 0.85 };
+  if (corr < 600 && dur < 0.3) return { type: "🔩 ŻELAZO", confidence: 0.88 };
+  if (corr > 1000 && corr < 2000 && dur > 0.8) return { type: "🏺 GŁĘBOKI CEL", confidence: 0.76 };
+  return { type: "❓ NIEZNANY", confidence: 0.5 };
+}
+
+/* ========= MIKROFON GŁÓWNY ========= */
+async function startMic(){
+  try{
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ alert("Brak wsparcia mikrofonu. Użyj HTTPS/localhost."); return; }
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (audioCtx.state==='suspended') await audioCtx.resume();
+    if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+    const base = {echoCancellation:false, noiseSuppression:false, autoGainControl:false};
+    const cons = micSelect.value ? { audio:{deviceId:{exact:micSelect.value}, ...base} } : { audio:base };
+    mediaStream = await navigator.mediaDevices.getUserMedia(cons);
+    srcNode = audioCtx.createMediaStreamSource(mediaStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize=2048; analyser.smoothingTimeConstant=0.8;
+    srcNode.connect(analyser);
+    isListening=true;
+    startBtn.disabled=true; stopBtn.disabled=false;
+    statusEl.textContent="🎙️ SŁUCHAM..."; statusEl.parentElement.classList.add('pulse');
+    animate();
+  }catch(e){
+    alert("Błąd mikrofonu: " + (e.message||"odmowa"));
+  }
+}
+function stopMic(){
+  isListening=false;
+  if (mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+  if (audioCtx && audioCtx.state!=='closed'){ audioCtx.close(); audioCtx=null; }
+  startBtn.disabled=false; stopBtn.disabled=true;
+  statusEl.textContent="Zatrzymano"; statusEl.parentElement.classList.remove('pulse');
+  freqEl.textContent="---"; volEl.textContent="---"; timeEl.textContent="---";
+  aiMsg.textContent="👂 Czekam na sygnał z detektora...";
+  saveBtn.disabled=true; lastDet=null; emaFreq=null; emaVol=null;
+}
+
+/* ========= ANIMACJA GŁÓWNA ========= */
+function animate(){
+  if (!isListening) return;
+  requestAnimationFrame(animate);
+  const N=analyser.frequencyBinCount;
+  const fdata=new Uint8Array(N); analyser.getByteFrequencyData(fdata);
+  let p=0,pv=0; for(let i=0;i<N;i++){ if(fdata[i]>pv){pv=fdata[i]; p=i;} }
+  const freq = refinedFreq(fdata, p, audioCtx.sampleRate, analyser.fftSize);
+  const tdata = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(tdata);
+  let s=0; for(let i=0;i<tdata.length;i++) s+=tdata[i]*tdata[i];
+  const rms = Math.sqrt(s/tdata.length);
+  const db = 20*Math.log10(rms||1e-6);
+  const noiseDb = 20*Math.log10(noiseRms||1e-6);
+  const thr = noiseDb + marginDb;
+  const isSig = db > thr;
+  if(!isSig) noiseRms = noiseAlpha*noiseRms + (1-noiseAlpha)*rms;
+  noiseVal.textContent=noiseDb.toFixed(1); thVal.textContent=thr.toFixed(1);
+  recentFreqs.push(freq); if(recentFreqs.length>RECENT_MAX) recentFreqs.shift();
+  liveCalib.textContent = Math.round(freq);
+  // Auto kalibracja (tylko przy głównym mikrofonie)
+  if (autoCapturing && isListening){
+    if (autoBuf.length===0 && isSig){
+      autoStart = performance.now(); autoBuf=[freq]; autoSilence=0;
+      calibMsg.textContent="⏺️ Rejestrowanie próbki...";
+    } else if (autoBuf.length>0){
+      if (isSig) autoBuf.push(freq); else autoSilence++;
+      const dur=(performance.now()-autoStart)/1000;
+      if ((dur>=0.12 && autoSilence>=6) || dur>=1.8){
+        if (autoBuf.length>=5){
+          const med = Math.round(median(autoBuf));
+          samples.push(med); renderSamples(); calibUpdateCounter();
+          calibMsg.innerHTML=`✅ Dodano próbkę: ${med} Hz`;
+        } else calibMsg.innerHTML='❌ Za mało danych. Spróbuj ponownie.';
+        autoCapturing=false; autoBuf=[]; autoSilence=0;
+      }
+    }
+  }
+  // Detekcja
+  const now=performance.now();
+  if(isSig && !signalStart){
+    signalStart=now;
+    const aiRes = aiClassify(freq, 0, db);
+    aiMsg.innerHTML = `🎙️ Wykryto: <b>${aiRes.type}</b>`;
+    aiMsg.classList.toggle('ai-high-confidence', aiRes.confidence > 0.85);
+    confidenceBar.style.width = `${aiRes.confidence * 100}%`;
+    if (aiRes.confidence > 0.85 && ttsEnabled) speak(`Wykryto: ${aiRes.type.replace('💰 ','').replace('🎯 ','')}`);
+  }
+  if(!isSig && signalStart){
+    const dur=((now-signalStart)/1000).toFixed(2);
+    const corr=freq+frequencyOffset;
+    const aiRes = aiClassify(corr, parseFloat(dur), db);
+    aiMsg.innerHTML = `✅ Zakończono: <b>${aiRes.type}</b> (${dur}s)`;
+    aiMsg.classList.toggle('ai-high-confidence', aiRes.confidence > 0.85);
+    confidenceBar.style.width = `${aiRes.confidence * 100}%`;
+    lastDet={freq:corr, volume:db, duration:parseFloat(dur), date:new Date().toISOString(), confidence: aiRes.confidence, type: aiRes.type};
+    signalStart=null;
+    if (autoSaveEnabled) {
+      setTimeout(() => {
+        getCurrentLocation((lat, lng) => {
+          const item = { ...lastDet, lat, lng, note: aiRes.type, autoSaved: true };
+          dbAdd(item).then(() => {
+            toastMsg("✅ AutoZapisano: " + aiRes.type);
+            loadDetections(); if(map) drawMapMarkers();
+          }).catch(e => toastMsg("Błąd zapisu: " + e));
+        });
+      }, 500);
+    } else {
+      saveBtn.disabled=false;
+    }
+  }
+  if(signalStart) timeEl.textContent=((now-signalStart)/1000).toFixed(2);
+  const corr=freq+frequencyOffset;
+  emaFreq = (emaFreq==null)?corr:(emaBeta*emaFreq+(1-emaBeta)*corr);
+  emaVol  = (emaVol==null)?db:(emaBeta*emaVol +(1-emaBeta)*db);
+  freqEl.textContent=(emaFreq||corr).toFixed(0);
+  volEl.textContent=(emaVol||db).toFixed(1);
+  drawSpectrum(fdata);
+}
+
+/* ========= MIKROFON KALIBRACYJNY — ✅ NIEZALEŻNY ========= */
+async function startCalibMic() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw "Brak dostępu do mikrofonu";
+    if (!calibAudioCtx) calibAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (calibAudioCtx.state === 'suspended') await calibAudioCtx.resume();
+    if (calibStream) calibStream.getTracks().forEach(t => t.stop());
+    const base = {echoCancellation:false, noiseSuppression:false, autoGainControl:false};
+    const cons = micSelect.value ? { audio:{deviceId:{exact:micSelect.value}, ...base} } : { audio:base };
+    calibStream = await navigator.mediaDevices.getUserMedia(cons);
+    const src = calibAudioCtx.createMediaStreamSource(calibStream);
+    calibAnalyser = calibAudioCtx.createAnalyser();
+    calibAnalyser.fftSize = 2048;
+    calibAnalyser.smoothingTimeConstant = 0.8;
+    src.connect(calibAnalyser);
+    isCalibMicActive = true;
+    calibMicBtn.textContent = "🎤 MIC KALIBRACJI: WŁ";
+    calibMicBtn.style.background = "#228822";
+    calibAnimate();
+  } catch (e) {
+    toastMsg("Błąd mikrofonu: " + (e.message || e));
+    calibMicBtn.textContent = "🎤 MIC KALIBRACJI: WYŁ";
+    calibMicBtn.style.background = "";
+  }
+}
+function stopCalibMic() {
+  isCalibMicActive = false;
+  if (calibStream) { calibStream.getTracks().forEach(t => t.stop()); calibStream = null; }
+  if (calibAudioCtx) { calibAudioCtx.close(); calibAudioCtx = null; }
+  calibMicBtn.textContent = "🎤 MIC KALIBRACJI: WYŁ";
+  calibMicBtn.style.background = "";
+  liveCalib.textContent = "---";
+}
+function calibAnimate() {
+  if (!isCalibMicActive) return;
+  requestAnimationFrame(calibAnimate);
+  const N = calibAnalyser.frequencyBinCount;
+  const fdata = new Uint8Array(N);
+  calibAnalyser.getByteFrequencyData(fdata);
+  let p = 0, pv = 0;
+  for (let i = 0; i < N; i++) if (fdata[i] > pv) { pv = fdata[i]; p = i; }
+  const freq = refinedFreq(fdata, p, calibAudioCtx.sampleRate, calibAnalyser.fftSize);
+  liveCalib.textContent = Math.round(freq);
+  recentFreqs.push(freq);
+  if (recentFreqs.length > RECENT_MAX) recentFreqs.shift();
+}
+
+/* ========= PANEL PRÓBEK ========= */
+function renderSavedSamples() {
+  savedSamplesList.innerHTML = savedSamples.length 
+    ? savedSamples.map((s,i) => `<div class="item${i===selectedSampleIndex?' selected':''}" onclick="selectSample(${i})">
+        <b>${s.name}</b><br><small>${Math.round(s.freq)} Hz ± ${s.std.toFixed(1)}</small>
+      </div>`).join('')
+    : `<div class="item center">Brak zapisanych wzorców</div>`;
+  useSampleAsRef.disabled = deleteSampleBtn.disabled = (selectedSampleIndex === -1);
+}
+window.selectSample = i => { selectedSampleIndex = i; renderSavedSamples(); };
+saveSampleBtn.onclick = () => {
+  const name = sampleNameInput.value.trim();
+  if (!name) return toastMsg("Wpisz nazwę!");
+  if (recentFreqs.length < 5) return toastMsg("Zbierz min. 5 odczytów (słuchaj ~1s)");
+  const f = [...recentFreqs];
+  const mean = f.reduce((a,b)=>a+b,0)/f.length;
+  const std = Math.sqrt(f.reduce((sum,x) => sum + (x-mean)**2, 0) / f.length);
+  savedSamples.push({name, freq: mean, std});
+  localStorage.setItem('ndx_saved_samples', JSON.stringify(savedSamples));
+  renderSavedSamples(); sampleNameInput.value = ''; toastMsg(`✅ Zapisano: ${name}`);
+};
+useSampleAsRef.onclick = () => {
+  if (selectedSampleIndex < 0) return;
+  const s = savedSamples[selectedSampleIndex];
+  frequencyOffset = s.freq - median(recentFreqs);
+  localStorage.setItem('ndx_offset', String(frequencyOffset));
+  updateCalibBadge(); toastMsg(`✅ Offset: ${s.name}`);
+};
+deleteSampleBtn.onclick = () => {
+  if (selectedSampleIndex < 0) return;
+  if (!confirm(`Usunąć ${savedSamples[selectedSampleIndex].name}?`)) return;
+  savedSamples.splice(selectedSampleIndex, 1);
+  localStorage.setItem('ndx_saved_samples', JSON.stringify(savedSamples));
+  selectedSampleIndex = -1; renderSavedSamples(); toastMsg("🗑️ Usunięto");
+};
+
+/* ========= KALIBRACJA — reszta bez zmian ========= */
+function calibUpdateCounter(){
+  sampleCount.textContent = `${samples.length} / 5`;
+  samplesCard.style.display = samples.length ? 'block':'none';
+}
+function renderSamples(){
+  samplesList.innerHTML = samples.map((v,i)=>`<div class="item"><div>Próbka ${i+1}: <b>${v} Hz</b></div></div>`).join('');
+  calibUpdateCounter();
+}
+function doQuickCalib(){
+  const med=Math.round(median(recentFreqs));
+  if(!isFinite(med)||med<=0){ toastMsg('Brak stabilnej próbki'); return; }
+  const ref=parseFloat(calibRef.value);
+  frequencyOffset = ref - med;
+  localStorage.setItem('ndx_offset', String(frequencyOffset));
+  updateCalibBadge();
+  calibMsg.textContent = `✅ Szybka kalibracja: ${med} → offset ${frequencyOffset>=0?'+':''}${frequencyOffset.toFixed(0)} Hz`;
+}
+function doApplyFromSamples(){
+  if(samples.length<3){ toastMsg('Zbierz min. 3 próbki'); return; }
+  const med=Math.round(median(samples)), ref=parseFloat(calibRef.value);
+  frequencyOffset = ref - med;
+  localStorage.setItem('ndx_offset', String(frequencyOffset));
+  updateCalibBadge();
+  calibMsg.textContent = `✅ Zastosowano offset: ${frequencyOffset>=0?'+':''}${frequencyOffset.toFixed(0)} Hz (med=${med})`;
+}
+function updateCalibBadge(){
+  if (Math.abs(frequencyOffset) > 0.5){
+    calibBadge.style.display='block';
+    calibBadge.textContent = `⚙️ Offset: ${frequencyOffset>=0?'+':''}${frequencyOffset.toFixed(0)} Hz`;
+  } else calibBadge.style.display='none';
+}
+
+/* ========= IndexedDB — bez zmian ========= */
+function dbOpen(){/* ... */return new Promise((resolve,reject)=>{if(!('indexedDB' in window)){resolve(null);return;}const req=indexedDB.open(DB_NAME,DB_VER);req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
+function dbAdd(item){/* ... */return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).add(item);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);});}
+function dbAll(){/* ... */return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});}
+function dbDelete(id){/* ... */return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(id);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);});}
+async function loadDetections(){detections=await dbAll();renderDetections();}
+function renderDetections(filter=""){if(!detections.length){detCard.style.display='none';return;}detCard.style.display='block';detList.innerHTML='';const f=filter.trim().toLowerCase();detections.slice().reverse().filter(d=>(d.note||'').toLowerCase().includes(f)).forEach(d=>{const el=document.createElement('div');el.className='item';const coords=(d.lat!=null&&d.lng!=null)?` | 📍 ${d.lat.toFixed(4)}, ${d.lng.toFixed(4)}`:'';const conf=d.confidence?` | ${(d.confidence*100).toFixed(0)}%`:'';el.innerHTML=`<div><b>${d.note||''}</b><br><small>${new Date(d.date).toLocaleString('pl-PL')} | ${Math.round(d.freq)} Hz | ${d.duration?.toFixed?.(2)??d.duration}s${conf}${coords}</small></div><div class="item-actions"><button class="btn btn-ghost" data-id="${d.id}">🗑️</button></div>`;detList.appendChild(el);});detList.querySelectorAll('[data-id]').forEach(btn=>{btn.addEventListener('click',async e=>{const id=parseInt(e.currentTarget.dataset.id,10);if(confirm('Usunąć wpis?')){await dbDelete(id);await loadDetections();if(map)drawMapMarkers();}});});}
+async function saveDetectionFlow(){if(!lastDet){const med=median(recentFreqs)+frequencyOffset;if(!isFinite(med)||med<=0){alert('Brak danych tonu do zapisu.');return;}const dStr=prompt('Czas sygnału [s] (np. 0.4):','0.4');if(dStr===null)return;const aiRes=aiClassify(med,parseFloat(dStr),-30);lastDet={freq:med,volume:emaVol??-40,duration:Math.max(0.05,parseFloat(dStr)||0.4),date:new Date().toISOString(),confidence:aiRes.confidence,type:aiRes.type};}saveOverlay.style.display='flex';noteInput.value=lastDet.type||'';photoPrev.style.display='none';photoPrev.src='';let hasGPS=false;locHint.textContent='Pobieram lokalizację...';getCurrentLocation((lat,lng)=>{lastDet.lat=lat;lastDet.lng=lng;locHint.textContent=lat?'✅ Lokalizacja pobrana':'⚠️ Brak lokalizacji';});}
+function attachTag(tag){noteInput.value=tag+noteInput.value;noteInput.focus();}
+async function doConfirmSave(){const note=noteInput.value.trim();if(!note){alert('Opis nie może być pusty.');return;}const item={...lastDet,note,};if(photoPrev.src&&photoPrev._blob)item.photo=photoPrev._blob;try{await dbAdd(item);saveOverlay.style.display='none';toastMsg('✅ Zapisano');lastDet=null;saveBtn.disabled=true;await loadDetections();if(map)drawMapMarkers();}catch(e){alert('Błąd zapisu: '+e);}}
+function getCurrentLocation(callback){if(!navigator.geolocation){callback(null,null);return;}navigator.geolocation.getCurrentPosition(pos=>callback(pos.coords.latitude,pos.coords.longitude),err=>callback(null,null),{timeout:10000,enableHighAccuracy:true});}
+
+/* ========= EVENTY ========= */
+startBtn.addEventListener('click', startMic);
+stopBtn.addEventListener('click', stopMic);
+saveBtn.addEventListener('click', saveDetectionFlow);
+micSelect.addEventListener('change', ()=>{
+  selectedMic = micSelect.value||''; localStorage.setItem('ndx_mic', selectedMic);
+  if(isListening){ stopMic(); startMic(); }
+  if(isCalibMicActive){ stopCalibMic(); startCalibMic(); }
+});
+sensitivity.value=marginDb; marginVal.textContent=marginDb;
+sensitivity.addEventListener('input', ()=>{
+  marginDb = parseInt(sensitivity.value,10);
+  marginVal.textContent=marginDb;
+  localStorage.setItem('ndx_margin', String(marginDb));
+});
+document.querySelectorAll('.tag-row .btn').forEach(b=>{b.addEventListener('click', ()=> attachTag(b.dataset.tag));});
+photoBtn.addEventListener('click', ()=> photoInput.click());
+photoInput.addEventListener('change', e=>{
+  const file=e.target.files?.[0]; if(!file) return;
+  photoPrev.src = URL.createObjectURL(file); photoPrev.style.display='block';
+  photoPrev._blob = file;
+});
+confirmSave.addEventListener('click', doConfirmSave);
+cancelSave.addEventListener('click', ()=> saveOverlay.style.display='none');
+discardBtn.addEventListener('click', ()=>{
+  lastDet=null; saveOverlay.style.display='none'; saveBtn.disabled=true; aiMsg.textContent='👂 Czekam na sygnał z detektora...';
+});
+openCalib.addEventListener('click', ()=>{
+  calibOverlay.style.display='flex';
+  renderSamples(); updateCalibBadge(); renderSavedSamples();
+});
+closeCalib.addEventListener('click', ()=>{
+  calibOverlay.style.display='none';
+  autoCapturing=false; autoBuf=[];
+  if (isCalibMicActive) stopCalibMic(); // ✅ kluczowe
+});
+// ✅ NOWE: mikrofon kalibracyjny
+calibMicBtn.addEventListener('click', () => isCalibMicActive ? stopCalibMic() : startCalibMic());
+autoBtn.addEventListener('click', ()=>{
+  if (!isListening && !isCalibMicActive){ toastMsg('Włącz mikrofon (główny lub kalibracyjny)'); return; }
+  autoCapturing=true; calibMsg.textContent='🎙️ Czekam na sygnał... (utrzymaj ~0.5–1.5 s)';
+});
+grabBtn.addEventListener('click', ()=>{
+  if (!isListening && !isCalibMicActive){ toastMsg('Włącz mikrofon (główny lub kalibracyjny)'); return; }
+  const med=Math.round(median(recentFreqs)); if(!isFinite(med)||med<=0){ toastMsg('Brak stabilnej próbki'); return; }
+  samples.push(med); renderSamples(); calibMsg.textContent=`✅ Dodano próbkę: ${med} Hz`;
+});
+quickBtn.addEventListener('click', doQuickCalib);
+applyBtn.addEventListener('click', doApplyFromSamples);
+clearSamplesBtn.addEventListener('click', ()=>{ samples=[]; renderSamples(); calibMsg.textContent='Próbki wyczyszczone'; });
+applyManual.addEventListener('click', ()=>{
+  const v=parseFloat(manualOffset.value); if(isNaN(v)) return;
+  frequencyOffset=v; localStorage.setItem('ndx_offset', String(v)); updateCalibBadge(); calibMsg.textContent=`✅ Zastosowano offset: ${v>=0?'+':''}${v.toFixed(0)} Hz`;
+});
+resetOffset.addEventListener('click', ()=>{ frequencyOffset=0; localStorage.setItem('ndx_offset','0'); updateCalibBadge(); calibMsg.textContent='Offset zresetowany'; });
+trainBtn.addEventListener('click', ()=> trainOverlay.style.display='flex');
+closeTrain.addEventListener('click', ()=> trainOverlay.style.display='none');
+playTrain.addEventListener('click', ()=>{
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const osc=ctx.createOscillator(), gain=ctx.createGain();
+  const sel={gold:{f:2450,d:0.3},silver:{f:2800,d:0.4},iron:{f:420,d:0.2},foil:{f:850,d:0.15},deep:{f:600,d:0.8}}[trainSelect.value];
+  osc.type='sine'; osc.frequency.value=sel.f; gain.gain.value=0.2;
+  osc.connect(gain).connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime+sel.d);
+});
+mapBtn.addEventListener('click', ()=>{
+  mapOverlay.style.display='flex';
+  if (!map){ 
+    map = L.map('map').setView([52.2297,21.0122], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+    heatLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 12 }).addTo(map);
+  }
+  setTimeout(()=>{ map.invalidateSize(); drawMapMarkers(); }, 90);
+});
+closeMapBtn.addEventListener('click', ()=> mapOverlay.style.display='none');
+searchInput.addEventListener('input', e=> renderDetections(e.target.value));
+recordBtn.addEventListener('click', ()=>{
+  if (!mediaStream){ alert('Najpierw uruchom mikrofon.'); return; }
+  try{
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
+                 MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+                 MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+    mediaRecorder = new MediaRecorder(mediaStream, mime?{mimeType:mime}:undefined);
+    recChunks=[];
+    mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) recChunks.push(e.data); };
+    mediaRecorder.onstop = ()=>{
+      const blob=new Blob(recChunks, {type: mime || 'audio/webm'});
+      const url=URL.createObjectURL(blob);
+      const ext = (mime.includes('webm')?'webm':(mime.includes('mp4')?'mp4':'webm'));
+      const a=document.createElement('a'); a.href=url; a.download=`NeuroDet_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.${ext}`; a.click();
+      URL.revokeObjectURL(url); toastMsg('✅ Nagranie pobrane');
+    };
+    mediaRecorder.start();
+    recordBtn.textContent='⏹ ZATRZYMAJ';
+  }catch(e){ alert('Błąd nagrywania: '+(e.message||e)); }
+});
+exportBtn.addEventListener('click', () => {
+  const format = prompt("Format eksportu: csv, gpx, json", "csv");
+  if (!format) return;
+  if (format === 'csv') {
+    let csv = "ID,Data,Ton[Hz],Głośność[dB],Czas[s],Pewność,Opis,Szerokość,Wysokość\n";
+    detections.forEach(d => {
+      csv += `${d.id},"${d.date}",${d.freq},${d.volume},${d.duration},${d.confidence || 0.5},"${d.note.replace(/"/g,'""')}",${d.lat || ''},${d.lng || ''}\n`;
+    });
+    downloadBlob(new Blob([csv], {type: 'text/csv;charset=utf-8;'}), `NeuroDet_${new Date().toISOString().slice(0,10)}.csv`);
+  } else if (format === 'gpx') {
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="NeuroDetector FUSION v7.1">
+`;
+    detections.forEach(d => {
+      if (d.lat && d.lng) {
+        gpx += `<wpt lat="${d.lat}" lon="${d.lng}">
+  <name>${d.note || 'Wykrycie'}</name>
+  <desc>Ton: ${Math.round(d.freq)} Hz, Czas: ${d.duration}s, Pewność: ${(d.confidence*100).toFixed(0)}%</desc>
+  <time>${d.date}</time>
+</wpt>
+`;
+      }
+    });
+    gpx += '</gpx>';
+    downloadBlob(new Blob([gpx], {type: 'application/gpx+xml'}), `NeuroDet_${new Date().toISOString().slice(0,10)}.gpx`);
+  } else if (format === 'json') {
+    const data = {
+      detections,
+      settings: { marginDb, frequencyOffset, selectedMic, ttsEnabled, autoSaveEnabled, savedSamples },
+      exportedAt: new Date().toISOString()
+    };
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}), `NeuroDet_backup_${new Date().toISOString().slice(0,10)}.json`);
+  }
+});
+ttsToggle.addEventListener('click', () => {
+  ttsEnabled = !ttsEnabled;
+  localStorage.setItem('ndx_tts', String(ttsEnabled));
+  ttsToggle.textContent = `🔈 TTS: ${ttsEnabled ? 'WŁ' : 'WYŁ'}`;
+  speak(ttsEnabled ? "Synteza mowy włączona" : "Synteza mowy wyłączona");
+});
+autoSaveToggle.addEventListener('click', () => {
+  autoSaveEnabled = !autoSaveEnabled;
+  localStorage.setItem('ndx_autosave', String(autoSaveEnabled));
+  autoSaveToggle.textContent = `💾 AutoSave: ${autoSaveEnabled ? 'WŁ' : 'WYŁ'}`;
+  toastMsg(autoSaveEnabled ? "AutoZapis WŁĄCZONY" : "AutoZapis WYŁĄCZONY");
+});
+hudToggle.addEventListener('click', () => {
+  hudMode = !hudMode;
+  document.body.classList.toggle('hud-mode', hudMode);
+  hudToggle.textContent = `⛶ HUD: ${hudMode ? 'WŁ' : 'WYŁ'}`;
+  if (hudMode && map) map.invalidateSize();
+});
+cloudBtn.addEventListener('click', () => {
+  toastMsg("☁️ Symulacja backupu do chmury...");
+  setTimeout(() => {
+    exportData('json');
+    toastMsg("✅ Backup zapisany lokalnie (chmura symulowana)");
+  }, 1500);
+});
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function drawMapMarkers(){
+  if (!map) return;
+  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  const points = [];
+  detections.forEach(d=>{
+    if (d.lat!=null && d.lng!=null){
+      const m=L.marker([d.lat,d.lng]).addTo(map).bindPopup(`<b>${d.note||''}</b><br>${new Date(d.date).toLocaleString('pl-PL')}<br>${Math.round(d.freq)} Hz`);
+      markers.push(m);
+      points.push([d.lat, d.lng, d.confidence || 0.5]);
+    }
+  });
+  if (heatLayer) heatLayer.setLatLngs(points);
+  if (markers.length){
+    const feat = new L.featureGroup(markers); map.fitBounds(feat.getBounds(), {padding:[40,40]});
+  } else map.setView([52.2297,21.0122], 6);
+}
+
+/* ========= INIT ========= */
+(async function init(){
+  try{ if(navigator.mediaDevices) await navigator.mediaDevices.getUserMedia({audio:true}).catch(()=>{}); }catch(e){}
+  await populateMics();
+  db = await dbOpen();
+  detections = db ? await dbAll() : [];
+  renderDetections();
+  if (Math.abs(frequencyOffset)>0.5) updateCalibBadge();
+  ttsToggle.textContent = `🔈 TTS: ${ttsEnabled ? 'WŁ' : 'WYŁ'}`;
+  autoSaveToggle.textContent = `💾 AutoSave: ${autoSaveEnabled ? 'WŁ' : 'WYŁ'}`;
+  renderSavedSamples();
+})();
+  </script>
+</body>
+</html>
